@@ -33,6 +33,8 @@ board = env.BoardConfig()
 
 ZEPHYR_ENV_VERSION = "1.0.0"
 FRAMEWORK_VERSION = platform.get_package_version("framework-zephyr").split('+')[0]
+TOOLCHAIN_VERSION = version.get_original_version(platform.get_package_version("toolchain-gccarmnoneeabi").split('+')[0])
+TOOLCHAIN_ROOT = os.path.join(platform.get_package_dir("toolchain-gccarmnoneeabi"), "zephyr-sdk-0.%s" %TOOLCHAIN_VERSION)
 
 PROJECT_DIR = env.subst("$PROJECT_DIR")
 PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
@@ -73,24 +75,8 @@ def is_cmake_reconfigure_required():
 
     return False
 
-def get_board_architecture(board_config):
-    if board_config.get("build.cpu", "").lower().startswith("cortex"):
-        return "arm"
-    elif board_config.get("build.march", "").startswith(("rv64", "rv32")):
-        return "riscv"
-    elif board_config.get("build.mcu") == "esp32":
-        return "xtensa32"
-
-    sys.stderr.write(
-        "Error: Cannot configure Zephyr environment for %s\n"
-        % env.subst("$PIOPLATFORM")
-    )
-    env.Exit(1)
-
-def populate_zephyr_env_vars(zephyr_env, board_config):
-    toolchain_version = version.get_original_version(platform.get_package_version("toolchain-gccarmnoneeabi").split('+')[0])
-
-    zephyr_env["Zephyr-sdk_DIR"] = os.path.join(platform.get_package_dir("toolchain-gccarmnoneeabi"), "zephyr-sdk-0.%s" %toolchain_version, "cmake/")
+def populate_zephyr_env_vars(zephyr_env):
+    zephyr_env["Zephyr-sdk_DIR"] = os.path.join(TOOLCHAIN_ROOT, "cmake/")
     zephyr_env["ZEPHYR_BASE"] = os.path.join(FRAMEWORK_DIR, "zephyr")
 
     additional_packages = [
@@ -103,6 +89,7 @@ def populate_zephyr_env_vars(zephyr_env, board_config):
         additional_packages.append(platform.get_package_dir("tool-gperf"))
 
     zephyr_env["PATH"] = os.pathsep.join(additional_packages)
+    print(additional_packages)
 
 def run_cmake():
     print("Reading CMake configuration")
@@ -141,7 +128,7 @@ def run_cmake():
 
     # Run Zephyr in an isolated environment with specific env vars
     zephyr_env = os.environ.copy()
-    populate_zephyr_env_vars(zephyr_env, board)
+    populate_zephyr_env_vars(zephyr_env)
 
     if int(ARGUMENTS.get("PIOVERBOSE", 0)):
         print(cmake_cmd)
@@ -157,15 +144,21 @@ def run_cmake():
         print(result["err"])
 
 def create_default_project_files(source_files):
+    build_flags = ""
+    if BUILD_FLAGS:
+        build_flags = " ".join(BUILD_FLAGS)
+    link_flags = ""
+    if BUILD_FLAGS:
+        link_flags = " ".join([item for item in BUILD_FLAGS if item.startswith('-Wl,')])
     cmake_tpl = f"""cmake_minimum_required(VERSION 3.20.0)
 set(Zephyr_DIR "$ENV{{ZEPHYR_BASE}}/share/zephyr-package/cmake/")
 find_package(Zephyr)
 project({os.path.basename(PROJECT_DIR)})
 
 include_directories(../src)
-SET(CMAKE_CXX_FLAGS  "${{CMAKE_CXX_FLAGS}} {" ".join(BUILD_FLAGS)}")
-SET(CMAKE_C_FLAGS  "${{CMAKE_C_FLAGS}} {" ".join(BUILD_FLAGS)}")
-zephyr_ld_options({" ".join([item for item in BUILD_FLAGS if item.startswith('-Wl,')])})
+SET(CMAKE_CXX_FLAGS  "${{CMAKE_CXX_FLAGS}} {build_flags}")
+SET(CMAKE_C_FLAGS  "${{CMAKE_C_FLAGS}} {build_flags}")
+zephyr_ld_options({link_flags})
 
 target_sources(app PRIVATE {" ".join(source_files)})
 """
@@ -230,13 +223,13 @@ if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
 WEST_UPDATED = os.path.join(FRAMEWORK_DIR, "west_updated")
 if not os.path.isfile(WEST_UPDATED):
     python_executable = env.get("PYTHONEXE")
-    cmake_cmd = [
+    west_update_cmd = [
         python_executable,
         "-m",
         "west",
         "update",
     ]
-    result = exec_command(cmake_cmd, cwd=FRAMEWORK_DIR)
+    result = exec_command(west_update_cmd, cwd=FRAMEWORK_DIR)
     if result["returncode"] != 0:
         sys.stderr.write(result["out"] + "\n")
         sys.stderr.write(result["err"])
@@ -254,6 +247,14 @@ os.makedirs(LOCAL_BIN, exist_ok=True)
 GIT_PATH = os.path.join(LOCAL_BIN, "git")
 if not os.path.isfile(GIT_PATH):
     os.symlink(shutil.which("git"), GIT_PATH)
+
+paths = [
+    os.path.join(TOOLCHAIN_ROOT, "arm-zephyr-eabi", "bin")
+]
+if os.environ.get("PATH"):
+    paths.append(os.environ.get("PATH"))
+os.environ["PATH"] = os.pathsep.join(paths)
+
 
 FIRMWARE_ELF = os.path.join(BUILD_DIR, "firmware.elf")
 # make sure that dontGenerateProgram is called.
@@ -273,6 +274,13 @@ def dontGenerateLibrary(target, source, env):
 # builder used to override the usual executable binary construction
 def dontGenerateProgram(target, source, env):
     get_cmake_code_model(env.get("PIOBUILDFILES_FINAL"))
+    
+    additional_packages = [
+        platform.get_package_dir("tool-ninja"),
+    ]
+    zephyr_env = os.environ.copy()
+    populate_zephyr_env_vars(zephyr_env)
+    
     build_cmd = [
         "ninja",
         "-C",
@@ -280,7 +288,10 @@ def dontGenerateProgram(target, source, env):
     ]
     if int(ARGUMENTS.get("PIOVERBOSE", 0)):
         build_cmd += ["-v"]
-    if env.Execute(" ".join(build_cmd)):
+    result = exec_command(build_cmd, env=zephyr_env)
+    if result["returncode"] != 0:
+        sys.stderr.write(result["out"] + "\n")
+        sys.stderr.write(result["err"])
         env.Exit(1)
     shutil.move(os.path.join(BUILD_DIR, "zephyr", "zephyr.elf"), FIRMWARE_ELF)
 
@@ -290,8 +301,9 @@ env['BUILDERS']['Object'] = SCons.Builder.Builder(action = dontGenerateObject)
 env['BUILDERS']['Library'] = SCons.Builder.Builder(action = dontGenerateLibrary)
 env['BUILDERS']['Program'] = SCons.Builder.Builder(action = dontGenerateProgram)
 
-if get_board_architecture(board) == "arm":
-    env.Replace(
-        SIZEPROGREGEXP=r"^(?:text|_TEXT_SECTION_NAME_2|sw_isr_table|devconfig|rodata|\.ARM.exidx)\s+(\d+).*",
-        SIZEDATAREGEXP=r"^(?:datas|bss|noinit|initlevel|_k_mutex_area|_k_stack_area)\s+(\d+).*",
-    )
+env.Replace(
+    SIZEPROGREGEXP=r"^(?:text|_TEXT_SECTION_NAME_2|sw_isr_table|devconfig|rodata|\.ARM.exidx)\s+(\d+).*",
+    SIZEDATAREGEXP=r"^(?:datas|bss|noinit|initlevel|_k_mutex_area|_k_stack_area)\s+(\d+).*",
+    SIZETOOL="arm-zephyr-eabi-size",
+    OBJCOPY="arm-zephyr-eabi-objcopy",
+)
