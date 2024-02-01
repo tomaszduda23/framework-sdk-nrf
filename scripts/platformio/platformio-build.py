@@ -28,13 +28,6 @@ import SCons.Builder
 
 Import("env")
 
-try:
-    import yaml
-except ImportError:
-    env.Execute("$PYTHONEXE -m pip install pyyaml==6.0.0")
-
-    import yaml
-
 platform = env.PioPlatform()
 board = env.BoardConfig()
 
