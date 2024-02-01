@@ -229,8 +229,19 @@ if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
         env.Exit(1)
 WEST_UPDATED = os.path.join(FRAMEWORK_DIR, "west_updated")
 if not os.path.isfile(WEST_UPDATED):
-    if env.Execute("$PYTHONEXE -m west update", cwd=FRAMEWORK_DIR):
+    python_executable = env.get("PYTHONEXE")
+    cmake_cmd = [
+        python_executable,
+        "-m",
+        "west",
+        "update",
+    ]
+    result = exec_command(cmake_cmd, cwd=FRAMEWORK_DIR)
+    if result["returncode"] != 0:
+        sys.stderr.write(result["out"] + "\n")
+        sys.stderr.write(result["err"])
         env.Exit(1)
+
     open(WEST_UPDATED, "x")
 
 toolchain_install_script = os.path.join(platform.get_package_dir("toolchain-gccarmnoneeabi"), "install.py")
