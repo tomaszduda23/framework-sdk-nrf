@@ -178,6 +178,8 @@ void main(void)
         fp.write(cmake_tpl)
     if not os.path.isfile(cmake_txt_file) or not filecmp.cmp(cmake_tmp_file, cmake_txt_file):
         shutil.move(cmake_tmp_file, cmake_txt_file)
+    else:
+        os.remove(cmake_tmp_file)
 
     if not os.listdir(os.path.join(PROJECT_SRC_DIR)):
         # create an empty file to make CMake happy during first init
