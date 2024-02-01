@@ -32,7 +32,7 @@ platform = env.PioPlatform()
 board = env.BoardConfig()
 
 ZEPHYR_ENV_VERSION = "1.0.0"
-FRAMEWORK_VERSION = platform.get_package_version("framework-zephyr")
+FRAMEWORK_VERSION = platform.get_package_version("framework-zephyr").split('+')[0]
 
 PROJECT_DIR = env.subst("$PROJECT_DIR")
 PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
@@ -88,7 +88,7 @@ def get_board_architecture(board_config):
     env.Exit(1)
 
 def populate_zephyr_env_vars(zephyr_env, board_config):
-    toolchain_version = version.get_original_version(platform.get_package_version("toolchain-gccarmnoneeabi"))
+    toolchain_version = version.get_original_version(platform.get_package_version("toolchain-gccarmnoneeabi").split('+')[0])
 
     zephyr_env["Zephyr-sdk_DIR"] = os.path.join(platform.get_package_dir("toolchain-gccarmnoneeabi"), "zephyr-sdk-0.%s" %toolchain_version, "cmake/")
     zephyr_env["ZEPHYR_BASE"] = os.path.join(FRAMEWORK_DIR, "zephyr")
@@ -222,7 +222,7 @@ def get_zephyr_target(board_config):
 if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0"):
     env.Exit(1)
 
-framework_zephyr_version = version.get_original_version(platform.get_package_version("framework-zephyr"))
+framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
 
 if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
     if env.Execute(f"$PYTHONEXE -m west init -m https://github.com/nrfconnect/sdk-nrf --mr v{framework_zephyr_version} {FRAMEWORK_DIR}"):
