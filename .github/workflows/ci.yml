@@ -9,6 +9,7 @@ jobs:
       image: python:3
 
     steps:
+      - uses: actions/checkout@v4
       - name: Install platformio
         run: pip install platformio
       - name: build example app
