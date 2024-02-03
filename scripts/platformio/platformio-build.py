@@ -89,7 +89,6 @@ def populate_zephyr_env_vars(zephyr_env):
         additional_packages.append(platform.get_package_dir("tool-gperf"))
 
     zephyr_env["PATH"] = os.pathsep.join(additional_packages)
-    print(additional_packages)
 
 def run_cmake():
     print("Reading CMake configuration")
@@ -251,7 +250,8 @@ if not os.path.isfile(GIT_PATH):
     os.symlink(shutil.which("git"), GIT_PATH)
 
 paths = [
-    os.path.join(TOOLCHAIN_ROOT, "arm-zephyr-eabi", "bin")
+    os.path.join(TOOLCHAIN_ROOT, "arm-zephyr-eabi", "bin"),
+    platform.get_package_dir("tool-ninja"),
 ]
 if os.environ.get("PATH"):
     paths.append(os.environ.get("PATH"))
@@ -276,13 +276,6 @@ def dontGenerateLibrary(target, source, env):
 # builder used to override the usual executable binary construction
 def dontGenerateProgram(target, source, env):
     get_cmake_code_model(env.get("PIOBUILDFILES_FINAL"))
-    
-    additional_packages = [
-        platform.get_package_dir("tool-ninja"),
-    ]
-    zephyr_env = os.environ.copy()
-    populate_zephyr_env_vars(zephyr_env)
-    
     build_cmd = [
         "ninja",
         "-C",
@@ -290,10 +283,7 @@ def dontGenerateProgram(target, source, env):
     ]
     if int(ARGUMENTS.get("PIOVERBOSE", 0)):
         build_cmd += ["-v"]
-    result = exec_command(build_cmd, env=zephyr_env)
-    if result["returncode"] != 0:
-        sys.stderr.write(result["out"] + "\n")
-        sys.stderr.write(result["err"])
+    if env.Execute(" ".join(build_cmd)):
         env.Exit(1)
     shutil.move(os.path.join(BUILD_DIR, "zephyr", "zephyr.elf"), FIRMWARE_ELF)
 
