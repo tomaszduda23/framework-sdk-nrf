@@ -213,8 +213,14 @@ def get_cmake_code_model(source_files):
 
 def get_zephyr_target(board_config):
     return board_config.get("build.zephyr.variant", env.subst("$BOARD").lower())
-if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0 git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
+if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0"):
     env.Exit(1)
+try:
+    import pyocd
+except ModuleNotFoundError:
+    if env.Execute("$PYTHONEXE -m pip -q install git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
+        env.Exit(1)
+
 
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
 
