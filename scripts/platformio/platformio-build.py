@@ -213,7 +213,7 @@ def get_cmake_code_model(source_files):
 
 def get_zephyr_target(board_config):
     return board_config.get("build.zephyr.variant", env.subst("$BOARD").lower())
-if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0"):
+if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0 git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
     env.Exit(1)
 
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
@@ -243,11 +243,17 @@ if os.path.isfile(toolchain_install_script):
     if env.Execute(f"$PYTHONEXE {toolchain_install_script}"):
         env.Exit(1)
 
-#need git in path
 os.makedirs(LOCAL_BIN, exist_ok=True)
+#need git in path
 GIT_PATH = os.path.join(LOCAL_BIN, "git")
 if not os.path.isfile(GIT_PATH):
     os.symlink(shutil.which("git"), GIT_PATH)
+#add ccache
+CCACHE_PATH = os.path.join(LOCAL_BIN, "ccache")
+if not os.path.isfile(CCACHE_PATH):
+    CCACHE_PATH_SRC = shutil.which("ccache")
+    if CCACHE_PATH_SRC:
+        os.symlink(CCACHE_PATH_SRC, CCACHE_PATH)
 
 paths = [
     os.path.join(TOOLCHAIN_ROOT, "arm-zephyr-eabi", "bin"),
@@ -256,7 +262,7 @@ paths = [
 if os.environ.get("PATH"):
     paths.append(os.environ.get("PATH"))
 os.environ["PATH"] = os.pathsep.join(paths)
-
+os.environ["ZEPHYR_BASE"] = FRAMEWORK_DIR
 
 FIRMWARE_ELF = os.path.join(BUILD_DIR, "firmware.elf")
 # make sure that dontGenerateProgram is called.
@@ -299,3 +305,19 @@ env.Replace(
     SIZETOOL="arm-zephyr-eabi-size",
     OBJCOPY="arm-zephyr-eabi-objcopy",
 )
+
+def flash_pyocd(*args, **kwargs):
+    flash_cmd = [
+        "$PYTHONEXE",
+        "-m",
+        "west",
+        "flash",
+        "-d",
+        BUILD_DIR,
+        "-r",
+        "pyocd",
+    ]
+    if env.Execute(" ".join(flash_cmd)):
+        env.Exit(1)
+
+env.AddCustomTarget("flash_pyocd", None, flash_pyocd)
