@@ -287,7 +287,9 @@ def dontGenerateLibrary(target, source, env):
 
 # builder used to override the usual executable binary construction
 def dontGenerateProgram(target, source, env):
-    get_cmake_code_model(env.get("PIOBUILDFILES_FINAL"))
+    files = env.get("PIOBUILDFILES_FINAL")
+    files.sort()
+    get_cmake_code_model(files)
     build_cmd = [
         "ninja",
         "-C",
