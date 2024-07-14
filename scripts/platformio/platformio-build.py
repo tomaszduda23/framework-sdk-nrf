@@ -149,6 +149,19 @@ def create_default_project_files(source_files):
     link_flags = ""
     if BUILD_FLAGS:
         link_flags = " ".join([item for item in BUILD_FLAGS if item.startswith('-Wl,')])
+
+    paths = []
+    for lb in env.GetLibBuilders():
+        if not lb.dependent:
+            continue
+        lb.env.PrependUnique(CPPPATH=lb.get_include_dirs())
+        paths.extend(lb.env["CPPPATH"])
+
+    DefaultEnvironment().Replace(__PIO_LIB_BUILDERS=None)
+
+    if len(paths):
+        build_flags += " -I".join(['', *paths])
+
     cmake_tpl = f"""cmake_minimum_required(VERSION 3.20.0)
 set(Zephyr_DIR "$ENV{{ZEPHYR_BASE}}/share/zephyr-package/cmake/")
 find_package(Zephyr)
@@ -187,7 +200,6 @@ void main(void)
 
 def get_cmake_code_model(source_files):
     create_default_project_files(source_files)
-
     if is_cmake_reconfigure_required():
         # Explicitly clean build folder to avoid cached values
         if os.path.isdir(CMAKE_API_DIR):
