@@ -160,7 +160,7 @@ def create_default_project_files(source_files):
     DefaultEnvironment().Replace(__PIO_LIB_BUILDERS=None)
 
     if len(paths):
-        build_flags += " -I".join(['', *paths])
+        build_flags += " ".join([f'\\"-I{path}\\"' for path in paths])
 
     cmake_tpl = f"""cmake_minimum_required(VERSION 3.20.0)
 set(Zephyr_DIR "$ENV{{ZEPHYR_BASE}}/share/zephyr-package/cmake/")
