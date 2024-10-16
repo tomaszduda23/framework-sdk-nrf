@@ -225,6 +225,15 @@ def get_cmake_code_model(source_files):
 
 def get_zephyr_target(board_config):
     return board_config.get("build.zephyr.variant", env.subst("$BOARD").lower())
+
+def correct_escape_sequences(file_path):
+    with open(file_path, 'r') as file:
+        content = file.read()
+    corrected_content = content.replace("re.split('\\s+', line)", "re.split('\\\\s+', line)")
+    with open(file_path, 'w') as file:
+        file.write(corrected_content)
+
+
 if env.Execute("$PYTHONEXE -m pip -q install west==1.2.0"):
     env.Exit(1)
 try:
@@ -253,6 +262,8 @@ if not os.path.isfile(WEST_UPDATED):
         sys.stderr.write(result["out"] + "\n")
         sys.stderr.write(result["err"])
         env.Exit(1)
+
+    correct_escape_sequences(os.path.join(FRAMEWORK_DIR, 'zephyr/scripts/build/uf2conv.py'))
 
     open(WEST_UPDATED, "x")
 
