@@ -19,7 +19,7 @@ import shutil
 import json
 import semantic_version
 import filecmp
-import platform
+from platform import machine
 
 from platformio.package import version
 from platformio.compat import IS_WINDOWS
@@ -234,7 +234,7 @@ def correct_escape_sequences(file_path):
 if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
     env.Exit(1)
 
-if platform.machine() == 'x86_64':
+if machine() == 'x86_64':
     try:
         import pyocd
     except ModuleNotFoundError:
