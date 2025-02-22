@@ -80,13 +80,9 @@ def populate_zephyr_env_vars(zephyr_env):
     zephyr_env["ZEPHYR_BASE"] = os.path.join(FRAMEWORK_DIR, "zephyr")
 
     additional_packages = [
-        platform.get_package_dir("tool-dtc"),
         platform.get_package_dir("tool-ninja"),
         LOCAL_BIN,
     ]
-
-    if not IS_WINDOWS:
-        additional_packages.append(platform.get_package_dir("tool-gperf"))
 
     zephyr_env["PATH"] = os.pathsep.join(additional_packages)
 
