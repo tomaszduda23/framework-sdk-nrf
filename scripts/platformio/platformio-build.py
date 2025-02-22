@@ -236,11 +236,11 @@ def correct_escape_sequences(file_path):
 
 if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
     env.Exit(1)
-try:
-    import pyocd
-except ModuleNotFoundError:
-    if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
-        env.Exit(1)
+#try:
+#    import pyocd
+#except ModuleNotFoundError:
+#    if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
+#        env.Exit(1)
 
 
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
