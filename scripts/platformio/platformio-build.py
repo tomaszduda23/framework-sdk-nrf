@@ -231,7 +231,7 @@ def correct_escape_sequences(file_path):
         file.write(corrected_content)
 
 
-if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
+if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.3.0"):
     env.Exit(1)
 
 if machine() == 'x86_64':
@@ -244,7 +244,7 @@ if machine() == 'x86_64':
 try:
     import cbor2
 except ModuleNotFoundError:
-    if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages cbor2"):
+    if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages cbor2==5.6.5"):
         env.Exit(1)
 
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
