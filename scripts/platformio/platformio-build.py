@@ -153,26 +153,30 @@ def create_default_project_files(source_files):
             continue
         lb.env.PrependUnique(CPPPATH=lb.get_include_dirs())
         paths.extend(lb.env["CPPPATH"])
-
     DefaultEnvironment().Replace(__PIO_LIB_BUILDERS=None)
 
     if len(paths):
         build_flags += " ".join([f'\\"-I{path}\\"' for path in paths])
 
-    cmake_tpl = f"""cmake_minimum_required(VERSION 3.20.0)
+    cmake_tpl = f"""
+cmake_minimum_required(VERSION 3.20.0)
+
 set(Zephyr_DIR "$ENV{{ZEPHYR_BASE}}/share/zephyr-package/cmake/")
+
 find_package(Zephyr)
+
 project({os.path.basename(PROJECT_DIR)})
 
-include_directories(../src)
 SET(CMAKE_CXX_FLAGS  "${{CMAKE_CXX_FLAGS}} {build_flags}")
 SET(CMAKE_C_FLAGS  "${{CMAKE_C_FLAGS}} {build_flags}")
 zephyr_ld_options({link_flags})
 
 target_sources(app PRIVATE {" ".join(source_files)})
+target_include_directories(app PRIVATE ../src)
 """
 
-    app_tpl = """#include <zephyr.h>
+    app_tpl = """
+#include <zephyr.h>
 
 void main(void)
 {
@@ -231,7 +235,7 @@ def correct_escape_sequences(file_path):
         file.write(corrected_content)
 
 
-if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.3.0"):
+if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
     env.Exit(1)
 
 if machine() == 'x86_64':
@@ -304,17 +308,20 @@ if os.path.exists(FIRMWARE_ELF):
     os.remove(FIRMWARE_ELF)
 
 # builder used to override the usual object file construction
-def dontGenerateObject(target, source, env):
+def obj(target, source, env):
     DefaultEnvironment().Append(PIOBUILDFILES_FINAL= [source[0].abspath])
     return None
 
 # builder used to override the usual library construction
-def dontGenerateLibrary(target, source, env):
+def lib(target, source, env):
+    DefaultEnvironment().Append(PIOBUILDLIBS_FINAL= [source[0].abspath])
     return None
 
 # builder used to override the usual executable binary construction
 def dontGenerateProgram(target, source, env):
     files = env.get("PIOBUILDFILES_FINAL")
+    if env.get("PIOBUILDLIBS_FINAL"):
+        files.extend(env.get("PIOBUILDLIBS_FINAL"))
     files.sort()
     get_cmake_code_model(files)
     build_cmd = [
@@ -330,9 +337,15 @@ def dontGenerateProgram(target, source, env):
 
     return None
 
-env['BUILDERS']['Object'] = SCons.Builder.Builder(action = dontGenerateObject)
-env['BUILDERS']['Library'] = SCons.Builder.Builder(action = dontGenerateLibrary)
-env['BUILDERS']['Program'] = SCons.Builder.Builder(action = dontGenerateProgram)
+def nop(target, source, env):
+    return None
+
+env['BUILDERS']['Object'] = SCons.Builder.Builder(action = obj)
+env['CCCOM'] = Action(lib)
+env['ARCOM'] = Action(nop)
+env['RANLIBCOM'] = Action(nop)
+ProgramScanner = SCons.Scanner.Prog.ProgramScanner()
+env['BUILDERS']['Program'] = SCons.Builder.Builder(action = dontGenerateProgram, target_scanner=ProgramScanner)
 
 env.Replace(
     SIZEPROGREGEXP=r"^(?:text|_TEXT_SECTION_NAME_2|sw_isr_table|devconfig|rodata|\.ARM.exidx)\s+(\d+).*",
