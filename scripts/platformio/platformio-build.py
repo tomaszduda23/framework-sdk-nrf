@@ -235,7 +235,7 @@ def correct_escape_sequences(file_path):
         file.write(corrected_content)
 
 
-if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
+if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.5.0"):
     env.Exit(1)
 
 if machine() == 'x86_64':
