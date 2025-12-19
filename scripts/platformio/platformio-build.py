@@ -96,6 +96,7 @@ def run_cmake():
     )
 
     python_executable = env.get("PYTHONEXE")
+    semver = semantic_version.Version(framework_zephyr_version)
     cmake_cmd = [
         os.path.join(platform.get_package_dir("tool-cmake") or "", "bin", "cmake"),
         "-S",
@@ -104,6 +105,12 @@ def run_cmake():
         BUILD_DIR,
         "-GNinja",
         "-DBOARD=%s" % get_zephyr_target(board),
+        "-DCMAKE_DISABLE_FIND_PACKAGE_ZephyrBuildConfiguration=TRUE",
+        "-DCMAKE_DISABLE_FIND_PACKAGE_ZephyrAppConfiguration=TRUE",
+        f"-DNCS_VERSION_MAJOR={semver.major}",
+        f"-DNCS_VERSION_MINOR={semver.minor}",
+        f"-DNCS_VERSION_PATCH={semver.patch}",
+        f"-DNCS_VERSION_EXTRA=",
         "-DPYTHON_EXECUTABLE:FILEPATH=%s" % python_executable,
         "-DPython3_EXECUTABLE:FILEPATH=%s" % python_executable,
         "-DPIO_PACKAGES_DIR:PATH=%s" % env.subst("$PROJECT_PACKAGES_DIR"),
@@ -231,21 +238,24 @@ def correct_escape_sequences(file_path):
         file.write(corrected_content)
 
 
-if env.Execute("$PYTHONEXE -m pip  -q install --break-system-packages west==1.2.0"):
-    env.Exit(1)
-
-if machine() == 'x86_64':
+def install_python_package(package_name, package_source=None, version_spec=None):
+    if not package_source:
+        package_source = package_name
     try:
-        import pyocd
+        __import__(package_name)
     except ModuleNotFoundError:
-        if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages git+https://github.com/tomaszduda23/pyOCD@949193f7cbf09081f8e46d6b9d2e4a79e536997e"):
+        if shutil.which("uv"):
+            pip_cmd = "uv pip"
+        else:
+            pip_cmd = f"$PYTHONEXE -m pip"
+        if env.Execute(f"{pip_cmd} -q install --break-system-packages {package_source}{version_spec}"):
             env.Exit(1)
 
-try:
-    import cbor2
-except ModuleNotFoundError:
-    if env.Execute("$PYTHONEXE -m pip -q install --break-system-packages cbor2"):
-        env.Exit(1)
+install_python_package("west", version_spec="==1.2.0")
+install_python_package("cbor2", version_spec="==5.6.5")
+
+if machine() == 'x86_64':
+    install_python_package("pyocd", package_source="git+https://github.com/tomaszduda23/pyOCD", version_spec="@949193f7cbf09081f8e46d6b9d2e4a79e536997e")
 
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
 
