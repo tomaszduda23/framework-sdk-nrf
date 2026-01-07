@@ -25,11 +25,20 @@ def get_nrfutil(platform):
 
 def get_sdk(platform):
     nrfutil = get_nrfutil(platform)
-    return nrfutil.get_sdk(get_sdk_version(platform), get_sdk_location(platform))
+    sdk = nrfutil.get_sdk(get_sdk_version(platform), get_sdk_location(platform))
+    if not sdk:
+        raise RuntimeError(
+            f"SDK version {get_sdk_version(platform)} not found in {get_sdk_location(platform)}."
+        )
+    return sdk
 
 
 def install_sdk(platform):
     nrfutil = get_nrfutil(platform)
+    sdk = nrfutil.get_sdk(get_sdk_version(platform), get_sdk_location(platform))
+    if sdk:
+        print(f"SDK version {get_sdk_version(platform)} is already installed.")
+        return sdk
     return nrfutil.install_sdk(get_sdk_version(platform), get_sdk_location(platform))
 
 
