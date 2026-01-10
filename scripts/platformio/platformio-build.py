@@ -28,7 +28,7 @@ class BuildEnvironment:
         self.project_dir = project_dir
         self.source_dir = source_dir
         self.build_dir = build_dir
-        self.app_dir = project_dir / "app"
+        self.app_dir = project_dir / "zephyr"
         self.sdk = sdk
         self.reconfigure_required = False
 
@@ -51,7 +51,7 @@ class BuildEnvironment:
         build_ninja_file = self.build_dir / "build.ninja"
         if not build_ninja_file.is_file():
             return True
-        pm_static_file = self.project_dir / "app" / "pm_static.yml"
+        pm_static_file = self.project_dir / "zephyr" / "pm_static.yml"
         if (
             pm_static_file.is_file()
             and pm_static_file.stat().st_mtime > cmake_cache_file.stat().st_mtime
