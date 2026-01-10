@@ -1,5 +1,5 @@
 west will automatically reconfigure and rebuild if
-* prj.conf is meaningfully hanged
+* prj.conf is meaningfully changed
 * sysbuild.conf is meaningfully changed
 * app.overlay is changed
 
