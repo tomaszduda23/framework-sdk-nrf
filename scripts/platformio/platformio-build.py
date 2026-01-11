@@ -209,7 +209,7 @@ print("Running nrfutil SDK setup...")
 sys.path.append(platform.get_package_dir("framework-zephyr"))
 import sdk
 
-nrf_sdk = sdk.install_sdk(platform)
+nrf_sdk = sdk.install_sdk(env)
 
 build_env = BuildEnvironment(
     project_dir=Path(env.subst("$PROJECT_DIR")),
