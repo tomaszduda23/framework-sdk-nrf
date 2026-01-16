@@ -173,6 +173,7 @@ zephyr_ld_options({link_flags})
 
 target_sources(app PRIVATE {" ".join(source_files)})
 target_include_directories(app PRIVATE ../src)
+target_link_options(app INTERFACE {link_flags})
 """
 
     app_tpl = """
