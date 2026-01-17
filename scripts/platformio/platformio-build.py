@@ -177,6 +177,7 @@ SET(CMAKE_C_FLAGS  "${{CMAKE_C_FLAGS}} {build_flags}")
 zephyr_ld_options({link_flags})
 
 target_sources(app PRIVATE {" ".join(source_files)})
+target_link_options(app INTERFACE {link_flags})
 """
 
     app_tpl = """#include <zephyr.h>
