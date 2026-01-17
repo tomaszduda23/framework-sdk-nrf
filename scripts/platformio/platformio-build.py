@@ -184,7 +184,7 @@ def west_build(build_env: BuildEnvironment, target, sources, env):
     board = env.BoardConfig()
 
     build_env.build(
-        board=board.get("board_name"),
+        board=board.get("build.zephyr.variant", board.id),
         build_flags=c_flags_from_env(env),
         link_flags=link_flags_from_env(env),
         source_files=sources,
