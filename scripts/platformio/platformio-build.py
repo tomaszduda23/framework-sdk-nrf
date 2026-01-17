@@ -80,8 +80,7 @@ class BuildEnvironment:
 
             project({self.project_dir.name})
 
-            SET(CMAKE_CXX_FLAGS  "${{CMAKE_CXX_FLAGS}} {' '.join(build_flags)}")
-            SET(CMAKE_C_FLAGS  "${{CMAKE_C_FLAGS}} {' '.join(build_flags)}")
+            zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:{' '.join(build_flags)}>)
             zephyr_ld_options({' '.join(link_flags)})
 
             target_sources(app PRIVATE {" ".join(sources)})
