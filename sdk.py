@@ -10,7 +10,7 @@ def get_sdk_location(env):
 
 def get_sdk_version(env):
     platform = env.PioPlatform()
-    requested_version = env.GetProjectOption("framework_version", None)
+    requested_version = env.GetProjectOption("custom_framework_version", None)
     if requested_version:
         return f"v{requested_version}"
     # fall back to default version of this package
