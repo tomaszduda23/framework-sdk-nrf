@@ -64,9 +64,31 @@ class BuildEnvironment:
             return True
         return False
 
+    def _generate_cmake_library_entries(self, libraries):
+        include_dirs = set()
+        libs = []
+        for l in libraries:
+            lib = f"zephyr_library_named({l['name']})"
+            lib += f"\nzephyr_library_sources({' '.join(l['sources'])})"
+            lib += (
+                f"\nzephyr_library_include_directories({' '.join(l['include_dirs'])})"
+            )
+            include_dirs.update(l["include_dirs"])
+            if l["build_flags"]:
+                lib += f"\nzephyr_library_compile_options({' '.join(l['build_flags'])})"
+            for d in l.get("dependencies", []):
+                lib += f"\nzephyr_library_link_libraries({d})"
+            libs.append(lib)
+        return libs, include_dirs
+
     def _generate_project_files(
-        self, build_flags: list[str], link_flags: list[str], source_files: list[Path]
+        self,
+        build_flags: list[str],
+        link_flags: list[str],
+        libraries: list[dict],
+        source_files: list[Path],
     ):
+        libs, include_dirs = self._generate_cmake_library_entries(libraries)
         sources = [str(f.relative_to(self.app_dir, walk_up=True)) for f in source_files]
         self.app_dir.mkdir(parents=True, exist_ok=True)
         cmake_file = self.app_dir / "CMakeLists.txt"
@@ -80,10 +102,14 @@ class BuildEnvironment:
 
             project({self.project_dir.name})
 
+            {'\n'.join(libs)}
+
             zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:{' '.join(build_flags)}>)
+            zephyr_include_directories({' '.join(include_dirs)})
             zephyr_ld_options({' '.join(link_flags)})
 
             target_sources(app PRIVATE {" ".join(sources)})
+            target_link_libraries(app PRIVATE {" ".join([l['name'] for l in libraries])})
             target_include_directories(app PRIVATE ../src)
             """
         )
@@ -129,12 +155,13 @@ class BuildEnvironment:
         board: str,
         build_flags: list[str],
         link_flags: list[str],
+        libraries: list[dict],
         source_files: list[Path],
         sysbuild: bool = True,
         pristine: bool = False,
         verbose: bool = False,
     ):
-        self._generate_project_files(build_flags, link_flags, source_files)
+        self._generate_project_files(build_flags, link_flags, libraries, source_files)
 
         west_cmd = [
             "west",
@@ -177,6 +204,38 @@ def source_files_from_env(env):
     return files
 
 
+def get_libraries_from_env(env, build_env):
+    ret = []
+    for dep in env.GetLibBuilders():
+        source_files = env.CollectBuildFiles(dep.build_dir, dep.src_dir, dep.src_filter)
+        source_files = [f.srcnode() for f in source_files]
+        ret.append(
+            {
+                "name": dep.name,
+                "include_dirs": [
+                    str(Path(d).relative_to(build_env.app_dir, walk_up=True))
+                    for d in dep.get_include_dirs()
+                ],
+                "build_flags": env.ProcessFlags(dep.build_flags),
+                "include_dir": str(
+                    Path(dep.include_dir).relative_to(build_env.app_dir, walk_up=True)
+                ),
+                "sources": [
+                    str(
+                        Path(s.get_abspath()).relative_to(
+                            build_env.app_dir, walk_up=True
+                        )
+                    )
+                    for s in source_files
+                ],
+                "dependencies": [d['name'] for d in dep.dependencies] if dep.dependencies else [],
+            }
+        )
+        #print(dep.build_flags)
+        
+    return ret
+
+
 def west_build(build_env: BuildEnvironment, target, sources, env):
     pristine = env.GetProjectOption("pristine", "False").lower() == "true"
     sysbuild = env.GetProjectOption("sysbuild", "True").lower() == "true"
@@ -186,6 +245,7 @@ def west_build(build_env: BuildEnvironment, target, sources, env):
         board=board.get("build.zephyr.variant", board.id),
         build_flags=c_flags_from_env(env),
         link_flags=link_flags_from_env(env),
+        libraries=get_libraries_from_env(env, build_env),
         source_files=sources,
         sysbuild=sysbuild,
         pristine=pristine,
