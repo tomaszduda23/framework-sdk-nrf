@@ -59,26 +59,32 @@ class BuildEnvironment:
             # Reconfigure if pm_static.yml has changed
             return True
         board_file = self.project_dir / "boards" / f"{board}.json"
-        if board_file.is_file() and board_file.stat().st_mtime > cmake_cache_file.stat().st_mtime:
+        if (
+            board_file.is_file()
+            and board_file.stat().st_mtime > cmake_cache_file.stat().st_mtime
+        ):
             # Reconfigure if the board configuration has changed
             return True
         return False
 
     def _generate_cmake_library_entries(self, libraries):
         include_dirs = set()
-        libs = []
+        libs = {}
         for l in libraries:
+            include_dirs.update(l["public_include_dirs"])
+            if not l["sources"]:
+                # Skip header only libraries
+                continue
             lib = f"zephyr_library_named({l['name']})"
             lib += f"\nzephyr_library_sources({' '.join(l['sources'])})"
             lib += (
-                f"\nzephyr_library_include_directories({' '.join(l['include_dirs'])})"
+                f"\nzephyr_library_include_directories({' '.join(l['private_include_dirs'])})"
             )
-            include_dirs.update(l["include_dirs"])
             if l["build_flags"]:
                 lib += f"\nzephyr_library_compile_options({' '.join(l['build_flags'])})"
             for d in l.get("dependencies", []):
                 lib += f"\nzephyr_library_link_libraries({d})"
-            libs.append(lib)
+            libs[l['name']] = lib
         return libs, include_dirs
 
     def _generate_project_files(
@@ -102,14 +108,14 @@ class BuildEnvironment:
 
             project({self.project_dir.name})
 
-            {'\n'.join(libs)}
+            {'\n'.join(libs.values())}
 
             zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:{' '.join(build_flags)}>)
             zephyr_include_directories({' '.join(include_dirs)})
             zephyr_ld_options({' '.join(link_flags)})
 
             target_sources(app PRIVATE {" ".join(sources)})
-            target_link_libraries(app PRIVATE {" ".join([l['name'] for l in libraries])})
+            target_link_libraries(app PRIVATE {" ".join(libs.keys())})
             target_include_directories(app PRIVATE ../src)
             """
         )
@@ -209,17 +215,22 @@ def get_libraries_from_env(env, build_env):
     for dep in env.GetLibBuilders():
         source_files = env.CollectBuildFiles(dep.build_dir, dep.src_dir, dep.src_filter)
         source_files = [f.srcnode() for f in source_files]
+        private_include_dirs = [
+            str(Path(d).relative_to(build_env.app_dir, walk_up=True))
+            for d in dep.get_include_dirs()
+        ]
+        if dep.include_dir:
+            public_include_dirs = [
+                str(Path(dep.include_dir).relative_to(build_env.app_dir, walk_up=True))
+            ]
+        else:
+            public_include_dirs = private_include_dirs
         ret.append(
             {
                 "name": dep.name,
-                "include_dirs": [
-                    str(Path(d).relative_to(build_env.app_dir, walk_up=True))
-                    for d in dep.get_include_dirs()
-                ],
+                "private_include_dirs": private_include_dirs,
                 "build_flags": env.ProcessFlags(dep.build_flags),
-                "include_dir": str(
-                    Path(dep.include_dir).relative_to(build_env.app_dir, walk_up=True)
-                ),
+                "public_include_dirs": public_include_dirs,
                 "sources": [
                     str(
                         Path(s.get_abspath()).relative_to(
@@ -228,11 +239,13 @@ def get_libraries_from_env(env, build_env):
                     )
                     for s in source_files
                 ],
-                "dependencies": [d['name'] for d in dep.dependencies] if dep.dependencies else [],
+                "dependencies": (
+                    [d["name"] for d in dep.dependencies] if dep.dependencies else []
+                ),
             }
         )
-        #print(dep.build_flags)
-        
+        # print(dep.build_flags)
+
     return ret
 
 
