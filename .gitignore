@@ -1,2 +1,3 @@
 venv
-nrfutil_sdk
+nrfutil_sdk/
+__pycache__/
