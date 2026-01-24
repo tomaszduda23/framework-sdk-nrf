@@ -13,5 +13,3 @@
 # limitations under the License.
 
 Import("env")
-platform = env.PioPlatform()
-platform.packages['framework-cmsis']['optional'] = True
