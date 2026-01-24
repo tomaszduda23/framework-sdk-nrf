@@ -241,7 +241,6 @@ def install_python_package(package_name, package_source=None, version_spec=None)
     try:
         __import__(package_name)
     except ModuleNotFoundError:
-        fdsa
         if shutil.which("uv"):
             pip_cmd = "uv pip"
         else:
