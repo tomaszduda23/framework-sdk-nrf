@@ -261,10 +261,12 @@ if machine() == 'x86_64':
 framework_zephyr_version = version.get_original_version(FRAMEWORK_VERSION)
 
 if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
+    print("Initializing nRF Connect SDK...")
     if env.Execute(f"$PYTHONEXE -m west init -m https://github.com/nrfconnect/sdk-nrf --mr v{framework_zephyr_version} {FRAMEWORK_DIR}"):
         env.Exit(1)
 WEST_UPDATED = os.path.join(FRAMEWORK_DIR, "west_updated")
 if not os.path.isfile(WEST_UPDATED):
+    print("Updating nRF Connect SDK %s (this may take a while) ...")
     python_executable = env.get("PYTHONEXE")
     west_update_cmd = [
         python_executable,
