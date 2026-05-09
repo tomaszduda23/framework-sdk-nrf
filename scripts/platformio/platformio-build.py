@@ -266,7 +266,7 @@ if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
         env.Exit(1)
 WEST_UPDATED = os.path.join(FRAMEWORK_DIR, "west_updated")
 if not os.path.isfile(WEST_UPDATED):
-    print("Updating nRF Connect SDK %s (this may take a while) ...")
+    print("Running west update (this may take a while) ...")
     python_executable = env.get("PYTHONEXE")
     west_update_cmd = [
         python_executable,
