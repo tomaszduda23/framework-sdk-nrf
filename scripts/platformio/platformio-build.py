@@ -26,6 +26,8 @@ from platformio.compat import IS_WINDOWS
 from platformio import fs
 from platformio.proc import exec_command
 import SCons.Builder
+import threading
+import time
 
 Import("env")
 
@@ -50,6 +52,29 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-zephyr")
 assert os.path.isdir(FRAMEWORK_DIR)
 
 LOCAL_BIN = os.path.join(FRAMEWORK_DIR, "bin")
+
+def run_with_progress(cmd, message=None, **kwargs):
+    stop_event = threading.Event()
+
+    def progress():
+        first = True
+        while not stop_event.wait(20):
+            if first and message:
+                print(message, end="", flush=True)
+                first = False
+            print(".", end="", flush=True)
+
+    t = threading.Thread(target=progress, daemon=True)
+    t.start()
+
+    try:
+        result = exec_command(cmd, **kwargs)
+    finally:
+        stop_event.set()
+        t.join()
+        print()  # newline after dots
+
+    return result
 
 def is_cmake_reconfigure_required():
     cmake_cache_file = os.path.join(BUILD_DIR, "CMakeCache.txt")
@@ -266,7 +291,7 @@ if not os.path.isdir(os.path.join(FRAMEWORK_DIR, ".west")):
         env.Exit(1)
 WEST_UPDATED = os.path.join(FRAMEWORK_DIR, "west_updated")
 if not os.path.isfile(WEST_UPDATED):
-    print("Running west update (this may take a while) ...")
+
     python_executable = env.get("PYTHONEXE")
     west_update_cmd = [
         python_executable,
@@ -274,7 +299,9 @@ if not os.path.isfile(WEST_UPDATED):
         "west",
         "update",
     ]
-    result = exec_command(west_update_cmd, cwd=FRAMEWORK_DIR)
+
+    result = run_with_progress(west_update_cmd, cwd=FRAMEWORK_DIR, message="Running west update (this may take a while) ")
+    
     if result["returncode"] != 0:
         sys.stderr.write(result["out"] + "\n")
         sys.stderr.write(result["err"])
